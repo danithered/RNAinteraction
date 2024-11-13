@@ -3,6 +3,8 @@
 #include <string.h>
 #include <ViennaRNA/part_func_up.h>
 #include <ViennaRNA/fold.h>
+#include <ViennaRNA/constraints/basic.h>
+#include <ViennaRNA/partfunc/global.h>
 
 struct RNA{
 	char* seq;
@@ -79,16 +81,17 @@ int main(){
 	printRNA(&rna2);
 
 	// function part
-	struct RNA *left= &rna1, *right= $rna2;
+	// binding rna1 5' dangling end to rna2 3' dangling end
+	struct RNA *left= &rna1, *right= &rna2;
 
 	// init char storing structural constraint
-	unsigned int constraint_length = rna1->length+rna2->length+1;
+	unsigned int constraint_length = left->length+right->length+2;
 	char *constraint = (char*) calloc(constraint_length, sizeof(char));
 	if(!constraint){
 		printf("ERROR: Could not initialise array for constraint in size %d\n", constraint_length);
 		return(0);
 	}
-	memset(constraint, 'x', --constraint_length); // init all to have no intermoleclar interaction
+	memset(constraint, 'x', --constraint_length); // init all to have no intermoleclar interaction (decrement constraint_length)
 	constraint[constraint_length] = '\0'; // do not forget about terminator character 
 
 	// have to find the start og left 5' dangling end
@@ -101,31 +104,93 @@ int main(){
 
 	// which one is longer
 	struct RNA *longer, *shorter;
+	unsigned int length5 = 0, length3 = 0; 
+
 	if(left->length < right->length){
 		longer = right;
 		shorter = left;
+
+		// construct structural binding: starting with right, and then left
+
+		// have to find the end of right 3' dangling end
+		for(unsigned int i = 0; i != right->length && right->str[i] == '.'; ++i){
+			constraint[i] = '.';
+			++length3;
+		}
+
+		// put separator character '&'. Left will start at constraint[right->length+1]
+		constraint[right->length] = '&';
+		
+		// have to find the start og left 5' dangling end (do not forget: constraint_length = len1 + len2)
+		for(int i = left->length-1, start = right->length +1; i != -1 && left->str[i] == '.'; --i){
+			constraint[start + i] = '.';
+			++length5;
+		}
+
 	} else {
 		longer = left;
 		shorter = right;
+		// construct structural binding: starting with left, and then right
+		
+		// left 5' dangling end
+		for(int i = left->length-1; i != -1 && left->str[i] == '.'; --i){
+			constraint[i] = '.';
+			++length5;
+		}
+
+		// put separator character '&'. Left will start at constraint[right->length+1]
+		constraint[left->length] = '&';
+		
+		// right 3' dangling end 
+		for(unsigned int i = 0, start = left->length+1; i != right->length && right->str[i] == '.'; ++i){
+			constraint[start+i] = '.';
+			++length3;
+		}
 	}
+	printf("constraint computed: %s\n", constraint);
+	
+	// maximal window length
+	const int w = (length3<length5)?length3:length5;
+
+	// calculating real probabilities
+	vrna_fold_compound_t *fc = vrna_fold_compound(longer->seq, NULL, VRNA_OPTION_DEFAULT);	
+	vrna_constraints_add(fc, longer->str, VRNA_CONSTRAINT_DB_DEFAULT);
+	//vrna_pf(fc, NULL); 
+	//vrna_fold_compound_free(fc);
+	
+	//double temp = pf_fold_par(longer->seq, longer->str, NULL, 0, 1, 0);
+	pf_fold(longer->seq, NULL);
+
+	pu_contrib *pu = pf_unstru(longer->seq, w);
+	free_pf_arrays();
+
+	// calculating fake probabilities
+	/*pu_contrib *pu = get_pu_contrib_struct(longer->length, w);
+	for (unsigned int i = 1; i <= longer->length; ++i){
+		for (unsigned int j = 0; j <= w; ++j) {
+			pu->H[i][j] = pu->I[i][j] = pu->M[i][j] = pu->E[i][j] = (constraint[i-1]=="x")?0.0:2.5;
+		}
+	}*/
+
 
 	// find binding energy
-	if(right_end >= 0 && left_start != left->length ) { // if there are dangling ends
+	if(length3 | length5) { // if there are dangling ends
 		interact *interaction =pf_interact(
 				longer->seq, // *s1 - the longer sequence
 				shorter->seq, // *s2, - the shorter sequence
-				NULL, // pu_contrib *p_c, - probabiltity of the bases of the first sequence to be unpaired
+				pu, // pu_contrib *p_c, - probabiltity of the bases of the first sequence to be unpaired
 				NULL, // pu_contrib *p_c2, - unpaired probs for the second sequence
-				, // int max_w, - maximal length of interaction
+				w, // int max_w, - maximal length of interaction
 				constraint, // char *cstruc, - structural constraint: 'x' for no intermolecular interaction, '|' intermolecular binding, '.' no constraint
 				0 , // int incr3, - inclusion of unpaired residues right of the region of interaction in ‘s1’
 				0 // int incr5 - inclusion of unpaired residues left of the region of interaction in ‘s1’
 				);
 
 		// free data
-		free(interact);
+		free_interact(interaction);
 	}
-
+	
+	free_pu_contrib(pu);
 	free(constraint);
 
 	// end of function part
