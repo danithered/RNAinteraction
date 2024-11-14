@@ -8,6 +8,7 @@
 #include <ViennaRNA/constraints/hard.h>
 #include <ViennaRNA/utils/strings.h>
 
+// RNA struct - you do not need this, just for myself
 struct RNA{
 	char* seq;
 	char* str;
@@ -74,17 +75,9 @@ void printRNA(struct RNA *rna){
 	printf("%s %s [%d] (%g)\n", rna->seq, rna->str, rna->length, rna->mfe);
 }
 
-int main(){
-	struct RNA rna1 = RNA_def, rna2 = RNA_def;
-	addRNA("AUAUAAUUUGGGGGAUAUACCCCCCGGGGGGG\0", &rna1);
-	addRNA("CCCCCCCCCGGGGGAUAUACCCCCCUUUUUU\0", &rna2);
-
-	printRNA(&rna1);
-	printRNA(&rna2);
-
-	// function part
+// functions - need this!
+void fn(struct RNA *left, struct RNA *right){
 	// binding rna1 5' dangling end to rna2 3' dangling end
-	struct RNA *left= &rna1, *right= &rna2;
 
 	// init char storing structural constraint
 	unsigned int constraint_length = left->length+right->length+2;
@@ -167,12 +160,12 @@ int main(){
 	free_pf_arrays();
 
 	// calculating fake probabilities
-	/*pu_contrib *pu = get_pu_contrib_struct(longer->length, w);
-	for (unsigned int i = 1; i <= longer->length; ++i){
-		for (unsigned int j = 0; j <= w; ++j) {
-			pu->H[i][j] = pu->I[i][j] = pu->M[i][j] = pu->E[i][j] = (constraint[i-1]=="x")?0.0:2.5;
-		}
-	}*/
+	//pu_contrib *pu = get_pu_contrib_struct(longer->length, w);
+	//for (unsigned int i = 1; i <= longer->length; ++i){
+	//	for (unsigned int j = 0; j <= w; ++j) {
+	//		pu->H[i][j] = pu->I[i][j] = pu->M[i][j] = pu->E[i][j] = (constraint[i-1]=="x")?0.0:2.5;
+	//	}
+	//}
 
 
 	// find binding energy
@@ -192,24 +185,36 @@ int main(){
 		free_interact(interaction);
 	}
 	
-	// other way
 
-	char *concat    = (char*) calloc(constraint_length, sizeof(char));
+	free_pu_contrib(pu);
+	free(constraint);
+}
+
+void fn2(struct RNA *left, struct RNA *right){
+	// binding rna1 5' dangling end to rna2 3' dangling end
+	unsigned int length5 = 0, length3 = 0; 
+
+	// init dynamic data
+	unsigned int constraint_length = left->length+right->length+2;
+	char *constraint = (char*) calloc(constraint_length, sizeof(char));
+	char *concat     = (char*) calloc(constraint_length, sizeof(char));
+	char *concatstr  = (char*) calloc(constraint_length, sizeof(char));
+	if( !(constraint && concat && concatstr) ){
+		printf("ERROR: Could not initialise arrays in size %d\n", constraint_length);
+		return(0);
+	}
+	memset(concatstr, '\0', constraint_length);
+
+	// create concatenated string
 	strcpy(concat, left->seq);
 	concat[left->length] = '&';
 	strcpy(concat + left->length + 1, right->seq);
 	concat[constraint_length-1] = '\0';
+
 	printf("concatenated structure: %s\n", concat);
 
-	char *concatstr = (char*) calloc(constraint_length, sizeof(char));
-	memset(concatstr, '\0', constraint_length);
-
-	strcpy(constraint, left->str);
-	constraint[left->length] = '&';
-	strcpy(constraint + left->length + 1, right->str);
-
-	// left 5' dangling end
-	{
+	// create constraint
+	{ // left 5' dangling end
 		int i = left->length-1;
 		for(; i != -1 && left->str[i] == '.'; --i){
 			constraint[i] = 'e';
@@ -217,12 +222,13 @@ int main(){
 		}
 		for(; i != -1; --i){
 			if(left->str[i] == '.') constraint[i] = 'x';
-			// else constraint[i] = '|';
+			else constraint[i] = left->str[i];
 		}
 	}
 
-	// right 3' dangling end 
-	{
+	constraint[left->length] = '&'; // separator
+
+	{ // right 3' dangling end 
 		unsigned int i = 0;
 		const unsigned int start = left->length+1;
 		for(; i != right->length && right->str[i] == '.'; ++i){
@@ -231,9 +237,13 @@ int main(){
 		}
 		for(; i != right->length; ++i){
 			if(right->str[i] == '.') constraint[start+i] = 'x';
+			else constraint[start+i] = right->str[i];
 		}
 	}
-	printf("recomputed constraint: %s\n", constraint);
+
+	constraint[constraint_length-1] = '\0'; // do not forget about terminator character 
+	
+	printf("constraint: %s\n", constraint);
 
 
 	/* create a new model details structure to store the Model Settings */
@@ -243,32 +253,52 @@ int main(){
                                                 &md,//&(opt->md),
                                                 VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
 
+	// add hard constraint
 	vrna_constraints_add(fc, constraint,
 			//VRNA_CONSTRAINT_DB | 
 			VRNA_CONSTRAINT_DB_X | 
 			VRNA_CONSTRAINT_DB_INTERMOL |
 			//VRNA_CONSTRAINT_DB_INTRAMOL |
 			VRNA_CONSTRAINT_DB_DEFAULT |
-			VRNA_CONSTRAINT_DB_ENFORCE_BP |
+			//VRNA_CONSTRAINT_DB_ENFORCE_BP |
 			VRNA_CONSTRAINT_DB_PIPE
 			);
 	
+	// compute dimer structure
 	float mfe = vrna_mfe_dimer(fc, concatstr);
-	//mfe = vrna_fold(concat, concatstr);
       	
 	// print
 	char * concatstr2 = NULL;
 	concatstr2 = (char *) vrna_cut_point_insert(concatstr, (int)fc->strand_start[1] );
 	printf("concatenated structure: %s [%f]\n\n", concatstr2, mfe);
 
-	// other way end
-
-	free_pu_contrib(pu);
+	// free stuff
+	vrna_fold_compound_free(fc);
 	free(constraint);
+	free(concat);
 	free(concatstr);
 	free(concatstr2);
+}
 
-	// end of function part
+
+int main(int argc, char** argv){
+	// read in or load rna-s + also compute str and mfe
+	struct RNA rna1 = RNA_def, rna2 = RNA_def;
+	
+	if(argc < 3){
+		addRNA("AUAUAAUUUGGGGGAUAUACCCCCCGGGGGGG\0", &rna1);
+		addRNA("CCCCCCCCCGGGGGAUAUACCCCCCUUUUUU\0", &rna2);
+	} else {
+		addRNA(argv[1], &rna1);
+		addRNA(argv[2], &rna2);
+	}
+
+	// print RNAs
+	printRNA(&rna1);
+	printRNA(&rna2);
+
+	// call fn
+	fn2(&rna1, &rna2);
 
 	// free
 	freeRNA(&rna1);
