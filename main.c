@@ -5,6 +5,8 @@
 #include <ViennaRNA/fold.h>
 #include <ViennaRNA/constraints/basic.h>
 #include <ViennaRNA/partfunc/global.h>
+#include <ViennaRNA/constraints/hard.h>
+#include <ViennaRNA/utils/strings.h>
 
 struct RNA{
 	char* seq;
@@ -74,8 +76,8 @@ void printRNA(struct RNA *rna){
 
 int main(){
 	struct RNA rna1 = RNA_def, rna2 = RNA_def;
-	addRNA("GCCCGAAAAUUUUUU\0", &rna1);
-	addRNA("GCCCGAAAAUUUUUU\0", &rna2);
+	addRNA("AUAUUUUUUGGGGGAUAUACCCCCCGGGGGGG\0", &rna1);
+	addRNA("CCCCCCCCCGGGGGAUAUACCCCCCUUUUUU\0", &rna2);
 
 	printRNA(&rna1);
 	printRNA(&rna2);
@@ -91,8 +93,8 @@ int main(){
 		printf("ERROR: Could not initialise array for constraint in size %d\n", constraint_length);
 		return(0);
 	}
-	memset(constraint, 'x', --constraint_length); // init all to have no intermoleclar interaction (decrement constraint_length)
-	constraint[constraint_length] = '\0'; // do not forget about terminator character 
+	memset(constraint, 'x', constraint_length-1); // init all to have no intermoleclar interaction 
+	constraint[constraint_length-1] = '\0'; // do not forget about terminator character 
 
 	// have to find the start og left 5' dangling end
 	unsigned int left_start= left->length; 
@@ -121,7 +123,7 @@ int main(){
 		// put separator character '&'. Left will start at constraint[right->length+1]
 		constraint[right->length] = '&';
 		
-		// have to find the start og left 5' dangling end (do not forget: constraint_length = len1 + len2)
+		// have to find the start og left 5' dangling end 
 		for(int i = left->length-1, start = right->length +1; i != -1 && left->str[i] == '.'; --i){
 			constraint[start + i] = '.';
 			++length5;
@@ -153,8 +155,8 @@ int main(){
 	const int w = (length3<length5)?length3:length5;
 
 	// calculating real probabilities
-	vrna_fold_compound_t *fc = vrna_fold_compound(longer->seq, NULL, VRNA_OPTION_DEFAULT);	
-	vrna_constraints_add(fc, longer->str, VRNA_CONSTRAINT_DB_DEFAULT);
+	// vrna_fold_compound_t *fc = vrna_fold_compound(longer->seq, NULL, VRNA_OPTION_DEFAULT);	
+	// vrna_constraints_add(fc, longer->str, VRNA_CONSTRAINT_DB_DEFAULT);
 	//vrna_pf(fc, NULL); 
 	//vrna_fold_compound_free(fc);
 	
@@ -190,8 +192,76 @@ int main(){
 		free_interact(interaction);
 	}
 	
+	// other way
+
+	char *concat    = (char*) calloc(constraint_length, sizeof(char));
+	strcpy(concat, left->seq);
+	concat[left->length] = '&';
+	strcpy(concat + left->length + 1, right->seq);
+	concat[constraint_length-1] = '\0';
+	printf("concatenated structure: %s\n", concat);
+
+	char *concatstr = (char*) calloc(constraint_length, sizeof(char));
+	memset(concatstr, '\0', constraint_length);
+
+	// left 5' dangling end
+	strcpy(constraint, left->str);
+	constraint[left->length] = '&';
+	strcpy(constraint + left->length + 1, right->str);
+
+	int i = left->length-1;
+	for(; i != -1 && left->str[i] == '.'; --i){
+		constraint[i] = 'e';
+		++length5;
+	}
+	for(; i != -1; --i){
+		if(left->str[i] == '.') constraint[i] = 'x';
+		else constraint[i] = '|';
+	}
+
+	// right 3' dangling end 
+	for(unsigned int i = 0, start = left->length+1; i != right->length && right->str[i] == '.'; ++i){
+		constraint[start+i] = 'e';
+		++length3;
+	}
+	printf("recomputed constraint: %s\n", constraint);
+
+
+	strcpy(concat,      "AUAUUUUUUGGGGGAUAUACCCCCCGGGGGGG&CCCCCCCCCGGGGGAUAUACCCCCCUUUUUU\0");
+	strcpy(constraint,  "xxxxxxxxx(((((xxxxxx)))))....|||&|||......(((((xxxxxx)))))xxxxxx\0");
+	/* create a new model details structure to store the Model Settings */
+	  vrna_md_t md;
+
+	  /* ALWAYS set default model settings first! */
+	  vrna_md_set_default(&md); 
+	vrna_fold_compound_t *fc = vrna_fold_compound(concat,
+                                                &md,//&(opt->md),
+                                                VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
+	//vrna_fold_compound_t *fc = vrna_fold_compound(concat, NULL, VRNA_OPTION_DEFAULT);	
+	vrna_constraints_add(fc, constraint,
+			//VRNA_CONSTRAINT_DB | 
+			VRNA_CONSTRAINT_DB_X | 
+			//VRNA_CONSTRAINT_DB_INTERMOL |
+			//VRNA_CONSTRAINT_DB_INTRAMOL |
+			VRNA_CONSTRAINT_DB_DEFAULT |
+			VRNA_CONSTRAINT_DB_ENFORCE_BP |
+			VRNA_CONSTRAINT_DB_PIPE
+			);
+	
+	float mfe = vrna_mfe_dimer(fc, concatstr);
+	//mfe = vrna_fold(concat, concatstr);
+      	
+	// print
+	char * concatstr2 = NULL;
+	concatstr2 = (char *) vrna_cut_point_insert(concatstr, (int)fc->strand_start[1] );
+	printf("concatenated structure: %s [%f]\n\n", concatstr2, mfe);
+
+	// other way end
+
 	free_pu_contrib(pu);
 	free(constraint);
+	free(concatstr);
+	free(concatstr2);
 
 	// end of function part
 
