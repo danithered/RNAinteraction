@@ -1,4 +1,4 @@
-PROGNAME=mcrscm
+PROGNAME=prog
 
 IDIR =./src/include
 ODIR=.

@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ViennaRNA/part_func_up.h>
 #include <ViennaRNA/fold.h>
-#include <ViennaRNA/constraints/basic.h>
-#include <ViennaRNA/partfunc/global.h>
 #include <ViennaRNA/constraints/hard.h>
 #include <ViennaRNA/utils/strings.h>
 
