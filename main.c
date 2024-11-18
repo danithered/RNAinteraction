@@ -166,6 +166,11 @@ double fn2(
 	/* create a new model details structure to store the Model Settings */
 	vrna_md_t md;
 	vrna_md_set_default(&md); 
+	
+	// set temperature
+	md.temperature = VRNA_MODEL_DEFAULT_TEMPERATURE;
+	
+	// create fold compound
 	vrna_fold_compound_t *fc = vrna_fold_compound(concat,
                                                 &md,//&(opt->md),
                                                 VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
