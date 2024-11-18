@@ -167,8 +167,8 @@ double fn2(
 	vrna_md_t md;
 	vrna_md_set_default(&md); 
 	
-	// set temperature
-	md.temperature = VRNA_MODEL_DEFAULT_TEMPERATURE;
+	// set temperature in celsius degrees. The default is 37 Celsius
+	// md.temperature = VRNA_MODEL_DEFAULT_TEMPERATURE;
 	
 	// create fold compound
 	vrna_fold_compound_t *fc = vrna_fold_compound(concat,
