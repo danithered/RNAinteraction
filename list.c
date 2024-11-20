@@ -34,7 +34,7 @@ int main(int argc, char** argv){
 	char *pos = strchr(argv[1], '&');
 	if(pos){
 		constraint[pos-argv[1]] = '&';
-		printf("%s\n", constraint);
+		//printf("%s\n", constraint);
 	}
 
 	/* create a new model details structure to store the Model Settings */
