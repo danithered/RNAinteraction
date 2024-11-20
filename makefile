@@ -15,7 +15,7 @@ LIBS=-lm `pkg-config --libs gsl` -fno-lto -Wl,-fno-lto -lRNA -fopenmp -lgsl -lgs
 _DEPS =  
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = main.o 
+_OBJ = list.o 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
