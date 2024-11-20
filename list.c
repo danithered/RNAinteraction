@@ -14,7 +14,7 @@ int main(int argc, char** argv){
 		return(1);
 	}
 
-	//const unsigned int length=strlen(argv[1]);
+	const unsigned int length=strlen(argv[1]);
 
 	// reserve memory for structure
 	//char* str = (char*) calloc(length+1, sizeof(char));
@@ -23,6 +23,20 @@ int main(int argc, char** argv){
 	//	return(2);
 	//}
 	
+	char* constraint = (char*) calloc(length+1, sizeof(char));
+	if(!constraint){
+		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
+		return(2);
+	}
+	
+	// create constraint
+	memset(constraint, 'e', length);
+	char *pos = strchr(argv[1], '&');
+	if(pos){
+		constraint[pos-argv[1]] = '&';
+		printf("%s\n", constraint);
+	}
+
 	/* create a new model details structure to store the Model Settings */
 	vrna_md_t md;
 	vrna_md_set_default(&md); 
@@ -34,11 +48,22 @@ int main(int argc, char** argv){
 	// create fold compound
 	vrna_fold_compound_t *fc = vrna_fold_compound(argv[1],
                                                 &md,//&(opt->md),
-                                                VRNA_OPTION_DEFAULT);
+                                                VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
+
+	// tell them binding has to be external binding
+	vrna_constraints_add(fc, constraint,
+			//VRNA_CONSTRAINT_DB | 
+			VRNA_CONSTRAINT_DB_X | 
+			VRNA_CONSTRAINT_DB_INTERMOL |
+			//VRNA_CONSTRAINT_DB_INTRAMOL |
+			VRNA_CONSTRAINT_DB_DEFAULT |
+			//VRNA_CONSTRAINT_DB_ENFORCE_BP |
+			VRNA_CONSTRAINT_DB_PIPE
+			);
 
 	// compute dimer structure
 	//float mfe = vrna_mfe_dimer(fc, str);
-	float mfe = vrna_mfe(fc, NULL);
+	float mfe = vrna_mfe_dimer(fc, NULL);
 
 	// collect suboptimal structures
 	int delta = (int)(-mfe*100.0)+1; // the range of subopt structures calculated around the optimal: delta * 0.01 kcal/mol 
@@ -52,6 +77,7 @@ int main(int argc, char** argv){
 	// free
 	vrna_fold_compound_free(fc);
 	//free(str);
+	free(constraint);
 	return 0;
 }
 
