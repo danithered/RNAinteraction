@@ -6,15 +6,16 @@
 #include <ViennaRNA/utils/basic.h>
 
 int main(int argc, char** argv){
-	char rna1[] = "GGGG\0";
-	char rna2[] = "CCCC\0";
+	char rna1[] = "AAAAAAAACCCCC\0";
+	char rna2[] = "UUUUGGG\0";
 
 	// dynamic allocation for concatenated string
 	const unsigned int length1=strlen(rna1), length2=strlen(rna2);
 	const unsigned int length=length1+length2+1;
 	
 	char *concatenated = (char*) calloc(length+1, sizeof(char));
-	if(!concatenated){
+	char *cstr = (char*) calloc(length+1, sizeof(char)); // while the doc says that it does not need it, vrna_dimer still uses this memory
+	if(!(concatenated && cstr)){
 		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
 		return(2);
 	}
@@ -33,11 +34,8 @@ int main(int argc, char** argv){
 	
 	// create constraint
 	memset(constraint, 'e', length);
-	char *pos = strchr(argv[1], '&');
-	if(pos){
-		constraint[pos-argv[1]] = '&';
-		//printf("%s\n", constraint);
-	}
+	constraint[length1]='&';
+	printf("%s\n", constraint);
 
 	/* create a new model details structure to store the Model Settings */
 	vrna_md_t md;
@@ -45,10 +43,10 @@ int main(int argc, char** argv){
 	md.uniq_ML = 1; // keep stuff for suboptim
 	
 	// set temperature in celsius degrees. The default is 37 Celsius
-	md.temperature = (argc < 3)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[2]);
+	md.temperature = (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]);
 	
 	// create fold compound
-	vrna_fold_compound_t *fc = vrna_fold_compound(argv[1],
+	vrna_fold_compound_t *fc = vrna_fold_compound(concatenated,
                                                 &md,//&(opt->md),
                                                 VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
 
@@ -64,7 +62,7 @@ int main(int argc, char** argv){
 			);
 
 	// compute dimer structure
-	float mfe = vrna_mfe_dimer(fc, NULL);
+	float mfe = vrna_mfe_dimer(fc, cstr);
 
 	// collect suboptimal structures
 	int delta = (int)(-mfe*100.0)+1; // the range of subopt structures calculated around the optimal: delta * 0.01 kcal/mol 
@@ -79,6 +77,7 @@ int main(int argc, char** argv){
 	vrna_fold_compound_free(fc);
 	free(constraint);
 	free(concatenated);
+	free(cstr);
 	return 0;
 }
 
