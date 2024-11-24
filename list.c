@@ -6,23 +6,25 @@
 #include <ViennaRNA/utils/basic.h>
 
 int main(int argc, char** argv){
+	char rna1[] = "GGGG\0";
+	char rna2[] = "CCCC\0";
+
+	// dynamic allocation for concatenated string
+	const unsigned int length1=strlen(rna1), length2=strlen(rna2);
+	const unsigned int length=length1+length2+1;
+	
+	char *concatenated = (char*) calloc(length+1, sizeof(char));
+	if(!concatenated){
+		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
+		return(2);
+	}
+	strcpy(concatenated, rna1);
+	concatenated[length1] = '&';
+	strcat(concatenated + length1 + 1, rna2);	
+
 	/* initialize random number generator */
 	vrna_init_rand();
 
-	if(argc < 2){
-		printf("please supply sequence as argument!\n");
-		return(1);
-	}
-
-	const unsigned int length=strlen(argv[1]);
-
-	// reserve memory for structure
-	//char* str = (char*) calloc(length+1, sizeof(char));
-	//if(!str){
-	//	printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
-	//	return(2);
-	//}
-	
 	char* constraint = (char*) calloc(length+1, sizeof(char));
 	if(!constraint){
 		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
@@ -62,7 +64,6 @@ int main(int argc, char** argv){
 			);
 
 	// compute dimer structure
-	//float mfe = vrna_mfe_dimer(fc, str);
 	float mfe = vrna_mfe_dimer(fc, NULL);
 
 	// collect suboptimal structures
@@ -76,8 +77,8 @@ int main(int argc, char** argv){
 
 	// free
 	vrna_fold_compound_free(fc);
-	//free(str);
 	free(constraint);
+	free(concatenated);
 	return 0;
 }
 
