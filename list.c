@@ -77,6 +77,11 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	return( subopts );
 }
 
+void freeSubopt(vrna_subopt_solution_t *l){
+      	for (unsigned int i = 0; l[i].structure; i++) free(l[i].structure);
+	free(l);
+}
+
 int main(int argc, char** argv){
 	char rna1[] = "ACCC\0";
 	char rna2[] = "UGGGGG\0";
@@ -84,15 +89,18 @@ int main(int argc, char** argv){
 	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]) );
 
 	// print
-	if(!subopts){
+	if(!subopts){ // if there was no beneficial structure print it
 		printf("Could not find optimal solutions.\n");
 		return(1);
 	}
 
+	// iterating tru list
 	for(vrna_subopt_solution_t *subopt = subopts; subopt->structure; ++subopt){
-		printf("%s\t%f\n", subopt->structure, subopt->energy);
+		printf("%s\t%f\n", subopt->structure, subopt->energy); // printing it
 	}
 
+	// free and return
+	freeSubopt(subopts);
 	return 0;
 }
 
