@@ -64,7 +64,7 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 
 	// collect suboptimal structures
 	int delta = (int)(-mfe*100.0)+1; // the range of subopt structures calculated around the optimal: delta * 0.01 kcal/mol 
-	vrna_subopt_solution_t *subopts = 
+	vrna_subopt_solution_t *subopts = vrna_subopt(fc, delta, 1, NULL); 
 
 	// free
 	vrna_fold_compound_free(fc);
@@ -76,12 +76,17 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 }
 
 int main(int argc, char** argv){
-	char rna1[] = "AC\0";
-	char rna2[] = "UG\0";
+	char rna1[] = "ACCCCCCC\0";
+	char rna2[] = "UGGGGGGGGGGGGG\0";
 
 	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]) );
 
 	// print
+	if(!subopts){
+		printf("Could not find optimal solutions.\n");
+		return(1);
+	}
+
 	for(vrna_subopt_solution_t *subopt = subopts; subopt->structure; ++subopt){
 		printf("%s\t%f\n", subopt->structure, subopt->energy);
 	}
