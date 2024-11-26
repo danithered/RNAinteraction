@@ -32,7 +32,9 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	// create constraint
 	memset(constraint, 'e', length);
 	constraint[length1]='&';
-	printf("%s\n", constraint);
+
+	//printf("%s\n", constraint);
+	printf("%s\n", concatenated);
 
 	/* create a new model details structure to store the Model Settings */
 	vrna_md_t md;
@@ -76,8 +78,8 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 }
 
 int main(int argc, char** argv){
-	char rna1[] = "ACCCCCCC\0";
-	char rna2[] = "UGGGGGGGGGGGGG\0";
+	char rna1[] = "ACCC\0";
+	char rna2[] = "UGGGGG\0";
 
 	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]) );
 
