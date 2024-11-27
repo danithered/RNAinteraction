@@ -11,9 +11,14 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	const unsigned int length=length1+length2+1;
 	
 	char *concatenated = (char*) calloc(length+1, sizeof(char));
-	char *cstr = (char*) calloc(length+1, sizeof(char)); // while the doc says that it does not need it, vrna_dimer still uses this memory
-	if(!(concatenated && cstr)){
+	if(!concatenated){
 		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
+		return(NULL);
+	}
+	char *cstr = (char*) calloc(length+1, sizeof(char)); // while the doc says that it does not need it, vrna_dimer still uses this memory
+	if(!cstr){
+		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
+		free(concatenated);
 		return(NULL);
 	}
 	strcpy(concatenated, rna1);
@@ -26,6 +31,8 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	char* constraint = (char*) calloc(length+1, sizeof(char));
 	if(!constraint){
 		printf("could not allocate memory is size sizeof(char) * %d\n", length+1);
+		free(concatenated);
+		free(cstr);
 		return(NULL);
 	}
 	
@@ -62,7 +69,13 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 
 	// compute dimer structure
 	float mfe = vrna_mfe_dimer(fc, cstr);
-	if(mfe >= 0.0) return(NULL);
+	if(mfe >= 0.0) {
+		vrna_fold_compound_free(fc);
+		free(constraint);
+		free(concatenated);
+		free(cstr);
+		return(NULL);
+	}
 
 	// collect suboptimal structures
 	int delta = (int)(-mfe*100.0)+1; // the range of subopt structures calculated around the optimal: delta * 0.01 kcal/mol 
@@ -83,8 +96,8 @@ void freeSubopt(vrna_subopt_solution_t *l){
 }
 
 int main(int argc, char** argv){
-	char rna1[] = "ACCC\0";
-	char rna2[] = "UGGGGG\0";
+	char rna1[] = "AC\0";
+	char rna2[] = "UG\0";
 
 	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]) );
 
