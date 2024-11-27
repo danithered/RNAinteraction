@@ -95,11 +95,18 @@ void freeSubopt(vrna_subopt_solution_t *l){
 	free(l);
 }
 
+unsigned int countLength(vrna_subopt_solution_t* x){
+	if(!x) return(0);
+	unsigned int length=0;
+	while(x[length].structure && x[length].energy>0.0) {++length;}
+	return(length);
+}
+
 int main(int argc, char** argv){
 	char rna1[] = "AC\0";
 	char rna2[] = "UG\0";
 
-	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, (argc < 2)?VRNA_MODEL_DEFAULT_TEMPERATURE:atof(argv[1]) );
+	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, VRNA_MODEL_DEFAULT_TEMPERATURE );
 
 	// print
 	if(!subopts){ // if there was no beneficial structure print it
