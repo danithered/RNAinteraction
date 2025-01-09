@@ -64,7 +64,7 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 			VRNA_CONSTRAINT_DB_INTERMOL |
 			//VRNA_CONSTRAINT_DB_INTRAMOL |
 			VRNA_CONSTRAINT_DB_DEFAULT |
-			//VRNA_CONSTRAINT_DB_ENFORCE_BP |
+			VRNA_CONSTRAINT_DB_ENFORCE_BP |
 			VRNA_CONSTRAINT_DB_PIPE
 			);
 
