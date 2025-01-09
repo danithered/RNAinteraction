@@ -305,11 +305,11 @@ int main(int argc, char** argv){
 	}
 
 	const unsigned int no_subopt = countLength(subopts);
-	if(no_subopt){
-		printf("Connecting first RNA duplex of %d suboptimal structures and rna %s\n", no_subopt, rna3);
+	for(unsigned int so = 0; so < no_subopt; ++so){ // I use deliberatley different for structure, as above!
+		printf("Connecting RNA duplex %d - with structure %s - of %d suboptimal structures and rna %s\n", so+1, subopts[so].structure, no_subopt, rna3);
 		vrna_subopt_solution_t *subopts2 = connect3(
 				rna1, rna2, // the seq of the 1st and 2nd member of the cofolded complex
-				subopts[0].structure, // structure of the cofolded complex
+				subopts[so].structure, // structure of the cofolded complex
 				rna3, // the single rna to bind to the complex
 				VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
 		// print
