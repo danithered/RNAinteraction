@@ -322,6 +322,8 @@ int main(int argc, char** argv){
 		for(vrna_subopt_solution_t *subopt = subopts2; subopt->structure; ++subopt){
 			printf("%s\t%f\n", subopt->structure, subopt->energy); // printing it
 		}
+
+		freeSubopt(subopts2);
 	}
 
 	// free and return
