@@ -139,8 +139,6 @@ void makeStickyEnds(char* begin, char* end){
  * @param[in] duplex_str Pointer to the dot-bracket 2D structure of the duplex RNA
  * @param[in] single_seq Pointer to the sequence of the unfolded, single RNA
  * @param[in] temperature Temperature of binding in Celsius degrees
- * @param[out] compl_seq Sequence of the complex. If NULL no output will be written.
- * @param[out] compl_str 2D stucture of the complex. If NULL no output will be written.
  *
  * @return MFE of the composit. If it is positive, some error happened.
  */
@@ -149,8 +147,8 @@ vrna_subopt_solution_t* connect3(
 		char *duplex2_seq, 
 		char *duplex_str,
 		char *single_seq,
-		const double temperature,
-		char **compl_seq, char **compl_str)
+		const double temperature
+)
 {
 	const unsigned int duplex1_length = strlen(duplex1_seq);
 	const unsigned int duplex_length = strlen(duplex_str);
@@ -169,17 +167,6 @@ vrna_subopt_solution_t* connect3(
 		free(constraint);
 		return(NULL);
 	}	
-	char *concatstr = NULL;
-	if(compl_str){
-		concatstr  = (char*) calloc(constraint_length, sizeof(char));
-		if( !concatstr ){
-			fprintf(stderr, "ERROR: Could not initialise arrays in size %d\n", constraint_length);
-			free(constraint);
-			free(concat);
-			return(NULL);
-		}
-		memset(concatstr, '\0', constraint_length);
-	}
 
 	// create concatenated string
 	strcpy(concat, duplex1_seq);
@@ -188,10 +175,6 @@ vrna_subopt_solution_t* connect3(
 	concat[duplex_length] = '&';
 	strcpy(concat + duplex_length + 1, single_seq);
 	concat[constraint_length-1] = '\0';
-	if(compl_seq){
-		*compl_seq = (char*) calloc(constraint_length, sizeof(char));
-		if(*compl_seq) strcpy(*compl_seq, concat);
-	}
 
 	// create constraint
 	// { // duplex 5' dangling end
@@ -280,12 +263,11 @@ vrna_subopt_solution_t* connect3(
 			);
 	
 	// compute dimer structure
-	float mfe = vrna_mfe_dimer(fc, concatstr);
+	float mfe = vrna_mfe_dimer(fc, NULL);
 	if(mfe >= 0.0) {
 		vrna_fold_compound_free(fc);
 		free(constraint);
 		free(concat);
-		free(concatstr);
 		return(NULL);
 	}
       	
@@ -297,7 +279,6 @@ vrna_subopt_solution_t* connect3(
 	vrna_fold_compound_free(fc);
 	free(constraint);
 	free(concat);
-	free(concatstr);
 
 	return( subopts );
 }
@@ -330,8 +311,7 @@ int main(int argc, char** argv){
 				rna1, rna2, // the seq of the 1st and 2nd member of the cofolded complex
 				subopts[0].structure, // structure of the cofolded complex
 				rna3, // the single rna to bind to the complex
-				VRNA_MODEL_DEFAULT_TEMPERATURE, // temperature
-				NULL, NULL); // outputs
+				VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
 		// print
 		if(!subopts2){ // if there was no beneficial structure print it
 			printf("Could not find optimal solutions.\n");
