@@ -5,6 +5,10 @@
 #include <ViennaRNA/subopt/wuchty.h>  
 #include <ViennaRNA/utils/basic.h>
 #include <ViennaRNA/utils/strings.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+
+gsl_rng * r;
 
 vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	// dynamic allocation for concatenated string
@@ -42,7 +46,7 @@ vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	constraint[length1]='&';
 
 	//printf("%s\n", constraint);
-	printf("%s\n", concatenated);
+	//printf("%s\n", concatenated);
 
 	/* create a new model details structure to store the Model Settings */
 	vrna_md_t md;
@@ -176,57 +180,11 @@ vrna_subopt_solution_t* connect3(
 	strcpy(concat + duplex_length + 1, single_seq);
 	concat[constraint_length-1] = '\0';
 
-	// create constraint
-	// { // duplex 5' dangling end
-		// int i = duplex_length-1;
-		// for(; i != -1 && duplex_str[i] == '.'; --i){
-			// constraint[i] = 'e';
-			// ++length5;
-		// }
-		// for(; i != -1; --i){
-			// if(duplex_str[i] == '.') constraint[i] = 'x';
-			// else constraint[i] = duplex_str[i];
-		// }
-	// }
-// 
-	// { // duplex 3' dangling end 
-		// for(unsigned int i = 0; i != duplex_length && duplex_str[i] == '.'; ++i){
-			// constraint[i] = 'e';
-		// }
-	// }
-	// constraint[duplex_length] = '&'; // separator
-// 
-	// { // single 3' dangling end 
-		// unsigned int i = 0;
-		// const unsigned int start = duplex_length+1;
-		// for(; i != single_length && single_str[i] == '.'; ++i){
-			// constraint[start+i] = 'e';
-		// }
-		// for(; i != single_length; ++i){
-			// if(single_str[i] == '.') constraint[start+i] = 'x';
-			// else constraint[start+i] = single_str[i];
-		// }
-	// }
-// 
-	// { // single 5' dangling end
-		// unsigned int i = duplex_length-1;
-		// const unsigned int start = ; 
-		// for(; i != -1 && duplex_str[i] == '.'; --i){
-			// constraint[i] = 'e';
-			// ++length5;
-		// }
-	// }
-	// constraint[constraint_length-1] = '\0'; // do not forget about terminator character 
-	
 	strcpy(constraint, duplex_str);
 	constraint[duplex_length] = '&';
-	// strcpy(constraint + duplex_length + 1, single_str);
 	memset(constraint + duplex_length + 1, 'e', single_length);
 	constraint[constraint_length-1] = '\0';
 
-	// find & separating first and second part of duplex - if it has none it is undefined behaviour!
-	// char *end = constraint + 1;
-	// while(*end != '&'){++end;}
 	
 	// make ends sticky
 	makeStickyEnds(constraint, constraint + duplex1_length); // make sticky ends for the first part of the duplex
@@ -253,13 +211,13 @@ vrna_subopt_solution_t* connect3(
 
 	// add hard constraint
 	vrna_constraints_add(fc, constraint,
-			//VRNA_CONSTRAINT_DB | 
+			VRNA_CONSTRAINT_DB | 
 			VRNA_CONSTRAINT_DB_X | 
 			VRNA_CONSTRAINT_DB_INTERMOL |
 			//VRNA_CONSTRAINT_DB_INTRAMOL |
-			VRNA_CONSTRAINT_DB_DEFAULT |
-			VRNA_CONSTRAINT_DB_ENFORCE_BP |
-			VRNA_CONSTRAINT_DB_PIPE
+			//VRNA_CONSTRAINT_DB_DEFAULT |
+			VRNA_CONSTRAINT_DB_ENFORCE_BP //|
+			//VRNA_CONSTRAINT_DB_PIPE
 			);
 	
 	// compute dimer structure
@@ -283,51 +241,99 @@ vrna_subopt_solution_t* connect3(
 	return( subopts );
 }
 
+char* getRandomSeq(unsigned int length){
+	const char bases[4] = {'A', 'U', 'G', 'C'};
+	char *seq = (char*) calloc(length+1, sizeof(char));
+	
+	if(!seq) {
+		fprintf(stderr, "Could not allocate memory for sequence of length %d.\n", length);
+		return(NULL);
+	}
+	
+	seq[length] = '\0';
+	while(length){seq[--length] = bases[gsl_rng_uniform_int(r, 4)];}
+
+	return(seq);
+}
+
+char* invertSeq(char* str){
+	unsigned int length = strlen(str); // length of the sequence with separator (length1 + length2 + 1)
+	char *newseq = (char*) calloc(length, sizeof(char));
+	if(!newseq){
+		fprintf(stderr, "invertSeq: Could not allocate memory!\n");
+		return(NULL);
+	}
+
+	// find & separating first and second part of duplex - if it has none it is undefined behaviour!
+	unsigned int sep = 0; // there wont be a separator at the 0th position (assumably...)
+	while(str[++sep] != '&');
+	const unsigned int length2 = length - sep - 1; // length of second part (length1 = sep)
+
+	strcpy(newseq, str + sep + 1); // copy second part
+	newseq[length2] = '&'; // write separator
+	strncpy(newseq + length2 + 1, str, sep); // copy first part
+
+	strcpy(str, newseq); // copy back original
+
+	free(newseq);
+	return(str);
+}
 
 int main(int argc, char** argv){
-	char rna1[] = "ACCCCC\0";
-	char rna2[] = "UGGGCC\0";
-	char rna3[] = "AGGG\0";
+	// init random gen
+	r = (gsl_rng *) gsl_rng_alloc (gsl_rng_mt19937);
+	gsl_rng_set(r, 2);
 
-	printf("Connecting RNA sequences %s and %s\n", rna1, rna2);
+	// print header
+	printf("rna1\trna2\trna3\tstr_duplex\tstr_triplex\tEduplex\tEtriplex\n");
 
-	vrna_subopt_solution_t *subopts = fn3(rna1, rna2, VRNA_MODEL_DEFAULT_TEMPERATURE );
+	for(int i = 10000;i--;){
+		// get random sequences
+		//const double mu = 10;
+		char *rna1 = getRandomSeq(gsl_rng_uniform_int(r, 9)+4);
+		char *rna2 = getRandomSeq(gsl_rng_uniform_int(r, 9)+4);
+		char *rna3 = getRandomSeq(gsl_rng_uniform_int(r, 9)+4);
 
-	// print
-	if(!subopts){ // if there was no beneficial structure print it
-		printf("Could not find optimal solutions.\n");
-		return(1);
-	}
+		vrna_subopt_solution_t *subopts = fn3(rna1, rna2, VRNA_MODEL_DEFAULT_TEMPERATURE );
 
-	// iterating tru list
-	for(vrna_subopt_solution_t *subopt = subopts; subopt->structure; ++subopt){
-		printf("%s\t%f\n", subopt->structure, subopt->energy); // printing it
-	}
+		// check if there was any
+		if(subopts) {
+			const unsigned int no_duplexes = countLength(subopts);
+			if(no_duplexes > 0){ // this one checks if no str with 0 energy (separate strands) is considered
+				//vrna_subopt_solution_t duplex = subopts[gsl_rng_uniform_int(r, no_duplexes)];
+				vrna_subopt_solution_t duplex = subopts[0];
 
-	const unsigned int no_subopt = countLength(subopts);
-	for(unsigned int so = 0; so < no_subopt; ++so){ // I use deliberatley different for structure, as above!
-		printf("Connecting RNA duplex %d - with structure %s - of %d suboptimal structures and rna %s\n", so+1, subopts[so].structure, no_subopt, rna3);
-		vrna_subopt_solution_t *subopts2 = connect3(
-				rna1, rna2, // the seq of the 1st and 2nd member of the cofolded complex
-				subopts[so].structure, // structure of the cofolded complex
-				rna3, // the single rna to bind to the complex
-				VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
-		// print
-		if(!subopts2){ // if there was no beneficial structure print it
-			printf("Could not find optimal solutions.\n");
-			return(1);
+
+				vrna_subopt_solution_t *triplexes1 = connect3(
+						rna1, rna2, // the seq of the 1st and 2nd member of the cofolded complex
+						duplex.structure, // structure of the cofolded complex
+						rna3, // the single rna to bind to the complex
+						VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
+
+				if(!triplexes1) continue;
+
+				printf("%s\t%s\t%s\t%s\t%s\t%f\t%f\n", rna1, rna2, rna3, duplex.structure, triplexes1[0].structure, duplex.energy, triplexes1[0].energy);
+
+				freeSubopt(triplexes1);
+
+				/*vrna_subopt_solution_t *triplexes2 = connect3(
+						rna2, rna1, // the seq of the 1st and 2nd member of the cofolded complex
+						invertStructure(duplex.structure), // structure of the cofolded complex
+						rna3, // the single rna to bind to the complex
+						VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
+				*/
+			}
+
+			freeSubopt(subopts);
 		}
 
-		// iterating tru list
-		for(vrna_subopt_solution_t *subopt = subopts2; subopt->structure; ++subopt){
-			printf("%s\t%f\n", subopt->structure, subopt->energy); // printing it
-		}
-
-		freeSubopt(subopts2);
+		free(rna1);
+		free(rna2);
+		free(rna3);
 	}
 
 	// free and return
-	freeSubopt(subopts);
+	gsl_rng_free(r);
 	return 0;
 }
 
