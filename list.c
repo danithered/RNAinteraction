@@ -383,7 +383,7 @@ int main(int argc, char** argv){
 	*/
 
 	char seq[]={"AAAAGGGGGGUUUUU&UUCCCAAAA"};
-	char str[]={".....GGG.......&..CCC...."};
+	char str[]={".....(((.......&..)))...."};
 
 	printf("energy: %f\n", fn4(seq, str, VRNA_MODEL_DEFAULT_TEMPERATURE));
 
