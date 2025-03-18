@@ -9,7 +9,52 @@
 #include <gsl/gsl_randist.h>
 
 gsl_rng * r;
+float fn4(char *seq, char *str, double temperature){
+	/* create a new model details structure to store the Model Settings */
+	vrna_md_t md;
+	vrna_md_set_default(&md); 
+	
+	// set temperature in celsius degrees. The default is 37 Celsius
+	md.temperature = temperature;
+	
+	// create fold compound
+	vrna_fold_compound_t *fc = vrna_fold_compound(seq,
+                                                &md,//&(opt->md),
+                                                VRNA_OPTION_DEFAULT | VRNA_OPTION_HYBRID);
 
+	// alloc space for modified constraint
+	const unsigned int length = strlen(seq);
+	char *constraint = (char*) calloc(length+1, sizeof(char));
+	strcpy(constraint, str);
+	for(char* base = constraint; *base != '\0'; ++base){
+		if(*base == '.') *base='x';
+	}
+
+	// tell them binding has to be external binding
+	vrna_constraints_add(fc, constraint,
+			//VRNA_CONSTRAINT_DB | 
+			VRNA_CONSTRAINT_DB_X | 
+			VRNA_CONSTRAINT_DB_INTERMOL |
+			//VRNA_CONSTRAINT_DB_INTRAMOL |
+			VRNA_CONSTRAINT_DB_DEFAULT |
+			VRNA_CONSTRAINT_DB_ENFORCE_BP |
+			VRNA_CONSTRAINT_DB_PIPE
+			);
+
+	// compute dimer structure
+	// char *estr= (char*) calloc(length+1, sizeof(char));
+	// float mfe = vrna_mfe_dimer(fc, estr);
+	// printf("%s (%f)\n", estr, mfe);
+	// free(estr);
+
+	float mfe = vrna_mfe_dimer(fc, NULL);
+	
+	// free
+	vrna_fold_compound_free(fc);
+	free(constraint);
+
+	return( mfe );
+}
 vrna_subopt_solution_t* fn3(char *rna1, char *rna2, const double temperature){
 	// dynamic allocation for concatenated string
 	const unsigned int length1=strlen(rna1), length2=strlen(rna2);
@@ -280,6 +325,7 @@ char* invertSeq(char* str){
 }
 
 int main(int argc, char** argv){
+	/*
 	// init random gen
 	r = (gsl_rng *) gsl_rng_alloc (gsl_rng_mt19937);
 	gsl_rng_set(r, 2);
@@ -316,12 +362,12 @@ int main(int argc, char** argv){
 
 				freeSubopt(triplexes1);
 
-				/*vrna_subopt_solution_t *triplexes2 = connect3(
-						rna2, rna1, // the seq of the 1st and 2nd member of the cofolded complex
-						invertStructure(duplex.structure), // structure of the cofolded complex
-						rna3, // the single rna to bind to the complex
-						VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
-				*/
+				//vrna_subopt_solution_t *triplexes2 = connect3(
+				//		rna2, rna1, // the seq of the 1st and 2nd member of the cofolded complex
+				//		invertStructure(duplex.structure), // structure of the cofolded complex
+				//		rna3, // the single rna to bind to the complex
+				//		VRNA_MODEL_DEFAULT_TEMPERATURE); // temperature
+				//
 			}
 
 			freeSubopt(subopts);
@@ -334,6 +380,13 @@ int main(int argc, char** argv){
 
 	// free and return
 	gsl_rng_free(r);
+	*/
+
+	char seq[]={"AAAAGGGGGGUUUUU&UUCCCAAAA"};
+	char str[]={".....GGG.......&..CCC...."};
+
+	printf("energy: %f\n", fn4(seq, str, VRNA_MODEL_DEFAULT_TEMPERATURE));
+
 	return 0;
 }
 
